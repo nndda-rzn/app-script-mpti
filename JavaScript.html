@@ -584,6 +584,7 @@
             const tr = recent[i]; 
             const payStat = tr.status_pembayaran === 'Lunas' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-amber-600 bg-amber-50 border-amber-100';
             const initial = escapeHTML(tr.customer).charAt(0).toUpperCase();
+            const itemsStr = tr.items && tr.items.length > 1 ? escapeHTML(tr.items.map(i => i.paket).join(', ')) + ' &bull; ' + tr.items.length + ' Item' : escapeHTML(tr.paket) + ' &bull; ' + escapeHTML(tr.berat) + ' ' + escapeHTML(tr.satuan || 'Kg');
             
             htmlString += `
                 <div class="bg-white p-4 rounded-xl flex justify-between items-center border border-slate-100 shadow-sm hover:shadow-md transition-shadow gap-4 group">
@@ -596,7 +597,7 @@
                             <div class="flex items-center gap-2 mt-1.5 flex-wrap">
                                 <span class="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border ${payStat}">${escapeHTML(tr.status_pembayaran)}</span>
                                 <span class="text-slate-300 hidden sm:inline">•</span>
-                                <p class="text-[10px] md:text-xs font-medium text-slate-500 truncate w-full sm:w-auto mt-1 sm:mt-0">${escapeHTML(tr.paket)} (${escapeHTML(tr.berat)} ${escapeHTML(tr.satuan || 'Kg')})</p>
+                                <p class="text-[10px] md:text-xs font-medium text-slate-500 truncate w-full sm:w-auto mt-1 sm:mt-0">${itemsStr}</p>
                             </div>
                         </div>
                     </div>
