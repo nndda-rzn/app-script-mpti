@@ -81,19 +81,41 @@ Di balik tampilan antarmukanya, L-Premium POS dilengkapi sistem backend yang dir
 ### 3. Reliability & Maintenance
 * **Auto-Backup System:** Terdapat fungsi *CRON trigger* yang otomatis menggandakan (duplikasi) database Google Sheets setiap hari jam 02:00 pagi ke Google Drive sebagai *fail-safe*.
 * **Silent Error Logging:** Semua *exception* atau kendala di server akan otomatis dicatat (*log*) pada lembar khusus `error_logs` di database, memungkinkan *debugging* tanpa mengganggu layar kasir.
-* **Optimized Queries:** Pembacaan data transaksi dibatasi algoritma *Smart Row Range*, hanya membaca 300 data terbaru untuk memastikan *loading* aplikasi tetap cepat meskipun database sudah terisi puluhan ribu baris.
+* **Optimized Queries:** Pembacaan data transaksi dibatasi algoritma *Smart Row Range*, hanya membaca 300 data terbaru untuk memastikan *loading* aplikasi tetap cepat.
+
+### 4. Arsitektur Modular (Feature-Driven)
+* **Pemisahan Logika (Separation of Concerns):** Kode monolitik (ribuan baris) telah dipecah menjadi puluhan modul independen (`client/` dan `server/`). Ini meminimalisir risiko *bug* ketika tim menambahkan fitur baru.
+* **Pragmatic Hoisting:** JavaScript frontend dibangun menggunakan pola *hoisted globals* agar dapat berjalan sempurna dalam satu ruang lingkup (*scope*) eksekusi Apps Script tanpa membebani sistem dengan *build tools* rumit seperti Webpack.
 
 ---
 
-## 📂 Struktur File Repository
+## 📂 Struktur Direktori (v2.0)
+
+Meninggalkan pola monolitik tradisional, kode repositori ini sekarang mengadopsi arsitektur berbasis fitur yang setara dengan kerangka kerja modern:
 
 ```text
 app-script-mpti/
-├── appsscript.json   # Konfigurasi manifest Apps Script (TimeZone, Library, URL)
-├── Kode.js           # Server-Side Backend (CRUD logic, Caching, Security)
-├── index.html        # Struktur HTML utama (Layout, Sidebar, Modal)
-├── CSS.html          # Custom Styling, Font imports, Print Media Queries
-└── JavaScript.html   # Client-Side Frontend (SPA Navigation, State, Event Listeners)
+├── appsscript.json             # Manifest Apps Script
+├── index.html                  # Shell Entrypoint Utama
+├── server/                     # Backend Logic & APIs
+│   ├── Config.js, Main.js, Utils.js
+│   ├── Auth.js, Transactions.js
+│   └── Customers.js, Packages.js, Promos.js, Settings.js
+└── client/                     # Frontend UI & Client Scripts
+    ├── core/                   # State, Config & Utilities
+    │   ├── globals.js.html, init.js.html, utils.js.html
+    │   └── styles.html         # CSS & Tailwind Utilities
+    ├── layout/                 # Komponen UI Statis & Modals
+    │   ├── header.html, sidebar.html, mobile_nav.html
+    │   └── modals/           
+    └── features/               # Modul Fungsionalitas Mandiri
+        ├── analytics/          # Laporan & Charting
+        ├── auth/               # Sistem Login
+        ├── customers/          # CRM Pelanggan
+        ├── packages/           # Manajemen Layanan
+        ├── promos/             # Sistem Voucher Diskon
+        ├── settings/           # Konfigurasi Sistem
+        └── transactions/       # Kasir & Riwayat Transaksi
 ```
 
 ---
