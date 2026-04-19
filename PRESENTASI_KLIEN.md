@@ -89,6 +89,18 @@ Meskipun klien tidak melihat ini di layar, ini adalah inti dari jaminan bahwa si
     *   Backend logic dipecah menjadi 9 file spesifik (contoh: `Transactions.js` hanya mengurus transaksi, `Auth.js` hanya mengurus kata sandi).
     *   Frontend dibagi menjadi lebih dari 30++ pecahan komponen fitur.
 
+**Visualisasi Struktur Direktori (Pemisahan Tugas)**:
+```text
+app-script-mpti/
+├── server/                     # Otak Sistem (Backend API)
+│   ├── Config.js, Main.js, Utils.js
+│   └── Auth.js, Transactions.js, Customers.js, dll.
+└── client/                     # Wajah Sistem (Frontend UI)
+    ├── core/                   # State Management & Utilities
+    ├── layout/                 # Komponen Statis (Header, Sidebar)
+    └── features/               # Modul Fitur Independen (Kasir, Promo, dll)
+```
+
 ### B. Pola Komunikasi Cerdas (*Pragmatic Hoisted Globals*)
 *   Dengan arsitektur terpisah, tim *Developer* berhasil merangkai kembali pecahan file ini menggunakan strategi *Hoisting*. Artinya, sistem bisa beroperasi layaknya aplikasi *Single-Page Application* sekelas React.js/Vue.js secara gratis, TANPA bergantung pada *server rendering* berbayar.
 *   **Dampak**: Perbaikan *bug* atau penambahan fitur di masa depan (seperti *Tutup Kasir*) bisa dilakukan 5x lipat lebih cepat oleh tim teknis tanpa berisiko merusak fitur yang sudah jalan.
@@ -96,6 +108,47 @@ Meskipun klien tidak melihat ini di layar, ini adalah inti dari jaminan bahwa si
 ### C. Mekanisme Zero-Collision & Perlindungan Aset
 *   **Concurrency Control**: Menggunakan skema ID Unik Universal (UUID) untuk mencegah tabrakan data ketika dua kasir menekan tombol "Simpan" bersamaan.
 *   **Auto-Backup**: Mencegah kehilangan aset bisnis (*Database Sheets*) dengan duplikasi harian otomatis ke Google Drive setiap jam 02:00 pagi.
+
+### D. Visualisasi Sistem & Alur Kerja (Workflows)
+
+Untuk memberikan gambaran yang transparan kepada Klien mengenai bagaimana sistem beroperasi dengan mulus di belakang layar, berikut adalah visualisasinya:
+
+**1. Relasi Database Serverless (Google Sheets)**
+Meskipun menggunakan Google Sheets, relasi antarentitas dirancang layaknya database relasional (SQL) modern untuk menjamin integritas.
+
+```mermaid
+erDiagram
+    TRANSAKSI ||--|{ ITEMS : "berisi"
+    PELANGGAN ||--o{ TRANSAKSI : "melakukan"
+    LAYANAN ||--o{ ITEMS : "termasuk dalam"
+    PROMO |o--o{ TRANSAKSI : "dipakai di"
+    PENGATURAN ||--|| SISTEM : "mengatur"
+```
+
+**2. Alur Kerja Aplikasi (Transaction Workflow)**
+Visualisasi bagaimana sistem memproses transaksi dari kasir hingga tersimpan secara aman tanpa hambatan (*Zero-Lag Experience*).
+
+```mermaid
+sequenceDiagram
+    actor Kasir
+    participant Frontend as Aplikasi Kasir (Browser)
+    participant Server as L-Premium Backend (Cloud)
+    participant DB as Google Sheets Database
+
+    Kasir->>Frontend: Input Transaksi Baru (Pilih Layanan)
+    Frontend->>Frontend: Validasi & Auto-Save Draft (Tiap 5 Detik)
+    Kasir->>Frontend: Klik "Simpan & Cetak"
+    Frontend->>Server: Kirim Paket Data Transaksi (JSON)
+    activate Server
+    Server->>Server: Verifikasi Total & Promo (Anti-Fraud Check)
+    Server->>DB: Eksekusi Simpan Data (Batch Operation)
+    activate DB
+    DB-->>Server: Konfirmasi Sukses Simpan
+    deactivate DB
+    Server-->>Frontend: Pengembalian UUID Transaksi
+    deactivate Server
+    Frontend->>Kasir: Tampilkan Nota / Buka Dialog WhatsApp
+```
 
 ---
 
