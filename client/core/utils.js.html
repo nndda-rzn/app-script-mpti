@@ -1,0 +1,93 @@
+<script>
+    // 2. FUNGSI UTILITAS
+    function escapeHTML(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag]));
+    }
+
+    function debounce(func, wait) {
+        let timeout; return function(...args) { clearTimeout(timeout); timeout = setTimeout(() => func.apply(this, args), wait); };
+    }
+
+    // 4. FUNGSI TAMPILAN & LOADING
+    function showLoading(s) { 
+        const ld = document.getElementById('loading'); 
+        if(s) { ld.classList.remove('hidden'); ld.classList.add('flex'); } 
+        else { ld.classList.add('hidden'); ld.classList.remove('flex'); } 
+    }
+
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        const bgClass = type === 'success' ? 'bg-slate-800' : 'bg-red-500';
+        toast.className = `${bgClass} text-white px-5 py-3.5 rounded-xl shadow-2xl flex items-center gap-3 transform transition-all duration-300 translate-y-[-100%] opacity-0 border border-slate-700/50`;
+        toast.innerHTML = `<span class="text-xs font-bold tracking-wide">${escapeHTML(message)}</span>`;
+        container.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.remove('translate-y-[-100%]', 'opacity-0'));
+        setTimeout(() => { toast.classList.add('translate-y-[-100%]', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3500);
+    }
+
+    function getBadgeStyle(status) {
+        const st = status ? String(status).toLowerCase() : '';
+        if (st === 'diambil') return 'bg-blue-100 text-blue-700 border-blue-200';
+        if (st === 'selesai') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+        return 'bg-slate-800 text-white border-slate-900'; 
+    }
+
+    function getPayBadgeStyle(status) {
+        const st = status ? String(status).toLowerCase() : '';
+        if (st === 'lunas') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+        return 'bg-red-100 text-red-600 border-red-200'; 
+    }
+
+    function toggleMobileMenu() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        if (sidebar.classList.contains('-translate-x-full')) {
+            sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+        } else {
+            sidebar.classList.add('-translate-x-full'); overlay.classList.add('opacity-0'); setTimeout(() => overlay.classList.add('hidden'), 300);
+        }
+    }
+
+    // 6. MODAL HAPUS
+    let deleteTargetType = ''; let deleteTargetId = '';
+    function showDeleteModal(type, id, title) { deleteTargetType = type; deleteTargetId = id; document.getElementById('deleteModalTitle').innerText = escapeHTML(title); const modal = document.getElementById('deleteModal'); const content = document.getElementById('deleteModalContent'); modal.classList.remove('hidden'); modal.classList.add('flex'); setTimeout(() => { content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10); }
+    function closeDeleteModal() { const modal = document.getElementById('deleteModal'); const content = document.getElementById('deleteModalContent'); content.classList.remove('scale-100'); content.classList.add('scale-95'); setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 200); }
+    function executeDelete() { closeDeleteModal(); if (deleteTargetType === 'paket') { performDeletePaket(deleteTargetId); } else if (deleteTargetType === 'customer') { performDeleteCustomer(deleteTargetId); } else if (deleteTargetType === 'promo') { performDeletePromo(deleteTargetId); } else if (deleteTargetType === 'transaction') { performDeleteTransaction(deleteTargetId); } }
+
+    // Normalisasi nomor WhatsApp ke format internasional (tanpa +)
+    function normalizeWA(raw) {
+        if (!raw) return '';
+        // 1. Konversi ke string, strip semua karakter non-digit (spasi, strip, titik, kurung)
+        let num = raw.toString().replace(/[^\d]/g, '').trim();
+        if (!num) return '';
+        // 2. Jika diawali '0' → ganti dengan '62'
+        if (num.startsWith('0')) { num = '62' + num.substring(1); }
+        // 3. Jika belum diawali '62' → tambahkan '62'
+        else if (!num.startsWith('62')) { num = '62' + num; }
+        return num;
+    }
+    // 17. KEYBOARD SHORTCUTS
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const cm = document.getElementById('confirmModal');
+            const nm = document.getElementById('notaModal');
+            const pm = document.getElementById('paymentModal');
+            const dm = document.getElementById('deleteModal');
+            if (cm && !cm.classList.contains('hidden')) { closeConfirmModal(); return; }
+            if (nm && !nm.classList.contains('hidden')) { closeNota(); return; }
+            if (pm && !pm.classList.contains('hidden')) { closePaymentModal(); return; }
+            if (dm && !dm.classList.contains('hidden')) { closeDeleteModal(); return; }
+        }
+        if (e.ctrlKey && !e.shiftKey && !e.altKey) {
+            if (e.key === '1') { e.preventDefault(); showSection('overview'); }
+            else if (e.key === '2') { e.preventDefault(); showSection('transaksi'); }
+            else if (e.key === '3') { e.preventDefault(); showSection('history'); }
+            else if (e.key === 'p' || e.key === 'P') {
+                const nm = document.getElementById('notaModal');
+                if (nm && !nm.classList.contains('hidden')) { e.preventDefault(); printNota(); }
+            }
+        }
+    });
+</script>

@@ -1,0 +1,67 @@
+<script>
+    // 1. VARIABEL GLOBAL
+    let currentUser = null; let trendChart = null; let packageChart = null; let topCustomerChart = null;
+    let allTransactions = []; let allCustomers = []; let allPackages = []; let editingPaketId = null; let currentReportData = []; let editingCustomerId = null; let currentPaketFilter = 'Semua';
+    let historyRenderLimit = 30;
+    let allPromos = []; let editingPromoId = null; let appliedPromo = null;
+    let isSubmitting = false; // [P0] Double-submit prevention
+    let transactionsCacheTime = 0; // [P1] Client-side transaction cache
+    const TRX_CACHE_TTL = 60000; // 1 menit TTL
+    let autoRefreshInterval = null; // [OPT] Auto-refresh polling
+    let draftSaveInterval = null; // [OPT] Draft auto-save
+
+    // [OPT] Notifikasi suara saat transaksi berhasil
+    function playNotifSound() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const gain = ctx.createGain(); gain.connect(ctx.destination); gain.gain.value = 0.25;
+            const o1 = ctx.createOscillator(); o1.connect(gain); o1.frequency.value = 800; o1.start(); o1.stop(ctx.currentTime + 0.12);
+            setTimeout(function() {
+                const o2 = ctx.createOscillator(); o2.connect(gain); o2.frequency.value = 1200; o2.start(); o2.stop(ctx.currentTime + 0.12);
+            }, 130);
+        } catch(e) {}
+    }
+
+    // [OPT] Draft transaksi — auto-save ke localStorage
+    function autoSaveDraft() {
+        if (currentCart.length === 0) return;
+        try {
+            const draft = {
+                custName: document.getElementById('custName').value,
+                custWA: document.getElementById('custWA').value,
+                cart: currentCart,
+                catatan: document.getElementById('catatanTrx').value,
+                _ts: Date.now()
+            };
+            localStorage.setItem('l_premium_draft', JSON.stringify(draft));
+        } catch(e) {}
+    }
+
+    function restoreDraft() {
+        try {
+            const raw = localStorage.getItem('l_premium_draft');
+            if (!raw) return;
+            const draft = JSON.parse(raw);
+            if (Date.now() - draft._ts > 3600000) { localStorage.removeItem('l_premium_draft'); return; } // expired 1 jam
+            if (draft.custName) document.getElementById('custName').value = draft.custName;
+            if (draft.custWA) document.getElementById('custWA').value = draft.custWA;
+            if (draft.catatan) document.getElementById('catatanTrx').value = draft.catatan;
+            if (draft.cart && draft.cart.length > 0) {
+                currentCart = draft.cart;
+                renderCart(); calculateTotal();
+                showToast("Draft transaksi dipulihkan");
+            }
+        } catch(e) {}
+    }
+
+    function clearDraft() {
+        try { localStorage.removeItem('l_premium_draft'); } catch(e) {}
+    }
+    
+    let appSettings = {
+        nota_title: "L-PREMIUM", nota_subtitle: "Laundry Bersih & Wangi", nota_footer: "Terima kasih atas\nkepercayaan Anda!",
+        wa_template: "Assalamu'alaikum, Kak *{customer}*\n\nTerima kasih telah mempercayakan cucian Anda di *{nama_toko}*.\n\n*Detail Pesanan:*\nNo. Nota  : {nota}\nLayanan   : {paket}\nJumlah    : {berat}\nTotal     : Rp {total}\nPembayaran: {status_pembayaran}\n\nEstimasi selesai: *{estimasi}*\nStatus saat ini : *{status}*\n\nKami akan menghubungi Anda kembali ketika cucian siap diambil.\nTerima kasih.", 
+        bank_name: "BCA", bank_rek: "1234", bank_an: "Nama", nota_tatatertib: ""
+    };
+
+</script>

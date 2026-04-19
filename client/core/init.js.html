@@ -1,0 +1,100 @@
+<script>
+    window.onload = function() {
+        const d = new Date();
+        const elDate = document.getElementById('dateDisplay');
+        if(elDate) elDate.innerText = d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        const elReport = document.getElementById('reportStart');
+        if(elReport) elReport.value = d.toISOString().split('T')[0];
+        
+        const saved = localStorage.getItem('l_premium_session_v3');
+        if (saved) { 
+            try { 
+                const sessionData = JSON.parse(saved); 
+                if (new Date().getTime() > sessionData.expiry) throw new Error('Expired');
+                currentUser = sessionData.user; 
+                setupDashboard(); 
+            } catch(e) { handleLogout(); } 
+        }
+    };
+
+    function setupDashboard() {
+        const lp = document.getElementById('loginPage'); const dp = document.getElementById('dashboardPage');
+        lp.style.opacity = '0';
+        loadSettings();
+        setTimeout(() => {
+            lp.classList.add('hidden'); dp.classList.remove('hidden');
+            setTimeout(() => dp.style.opacity = '1', 50);
+            document.getElementById('userNameDisplay').innerText = "Halo, " + escapeHTML(currentUser.nama || 'Pengguna');
+            const sidebarUserName = document.getElementById('sidebarUserName');
+            const sidebarUserRole = document.getElementById('sidebarUserRole');
+            if (sidebarUserName) sidebarUserName.innerText = escapeHTML(currentUser.nama || 'Pengguna');
+            if (sidebarUserRole) sidebarUserRole.innerText = escapeHTML(currentUser.role || 'Staff');
+            
+            if (currentUser.nama) {
+                const initials = document.querySelectorAll('#userInitial, #sidebarUserInitial');
+                for(let i=0; i<initials.length; i++) initials[i].innerText = escapeHTML(currentUser.nama.charAt(0).toUpperCase());
+            }
+            const isAdmin = currentUser.role === 'admin';
+            document.getElementById('adminMenuDesktop').classList.toggle('hidden', !isAdmin);
+            document.getElementById('adminLaporanDesktop').classList.toggle('hidden', !isAdmin);
+            document.getElementById('adminSettingsDesktop').classList.toggle('hidden', !isAdmin);
+            document.getElementById('adminPromoDesktop').classList.toggle('hidden', !isAdmin);
+            
+            showSection('overview'); fetchCustomers(); fetchPromos();
+
+            // [OPT] Auto-refresh dashboard setiap 5 menit (multi-kasir sync)
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+            autoRefreshInterval = setInterval(function() {
+                const onDash = !document.getElementById('section-overview').classList.contains('hidden');
+                const onHist = !document.getElementById('section-history').classList.contains('hidden');
+                if (onDash || onHist) loadTransactions(true);
+            }, 300000); // 5 menit
+
+            // [OPT] Draft auto-save setiap 5 detik
+            if (draftSaveInterval) clearInterval(draftSaveInterval);
+            draftSaveInterval = setInterval(autoSaveDraft, 5000);
+        }, 300);
+    }
+
+
+    function showSection(name) {
+        // [OPT] Konfirmasi jika ada transaksi belum disimpan
+        if (currentCart.length > 0 && name !== 'transaksi') {
+            if (!confirm('Ada transaksi yang belum disimpan. Yakin pindah halaman?')) return;
+        }
+        const sections = document.querySelectorAll('.section'); for(let i=0; i<sections.length; i++) sections[i].classList.add('hidden');
+        const navBtns = document.querySelectorAll('.nav-btn'); for(let i=0; i<navBtns.length; i++){ navBtns[i].classList.remove('bg-blue-50', 'text-blue-700', 'font-bold'); navBtns[i].classList.add('text-slate-500', 'font-medium'); const indicator = navBtns[i].querySelector('.nav-indicator'); if(indicator) indicator.classList.add('hidden'); const icon = navBtns[i].querySelector('svg'); if(icon) { icon.classList.remove('text-blue-600'); icon.classList.add('text-slate-400', 'group-hover:text-blue-500'); } }
+        const mobBtns = document.querySelectorAll('.mob-nav-btn'); for(let i=0; i<mobBtns.length; i++) mobBtns[i].classList.remove('text-blue-600');
+        
+        document.getElementById('section-' + name).classList.remove('hidden');
+        const btnDesktop = document.getElementById('btn-' + name) || document.getElementById('adminLaporanDesktop') || document.getElementById('adminMenuDesktop') || document.getElementById('adminSettingsDesktop') || document.getElementById('adminPromoDesktop');
+        if (btnDesktop && btnDesktop.id.toLowerCase().includes(name.toLowerCase())) { btnDesktop.classList.remove('text-slate-500', 'font-medium'); btnDesktop.classList.add('bg-blue-50', 'text-blue-700', 'font-bold'); const indicator = btnDesktop.querySelector('.nav-indicator'); if(indicator) indicator.classList.remove('hidden'); const icon = btnDesktop.querySelector('svg'); if(icon) { icon.classList.remove('text-slate-400', 'group-hover:text-blue-500'); icon.classList.add('text-blue-600'); } }
+        const btnMobile = document.getElementById('mob-' + name);
+        if (btnMobile && btnMobile.id.includes(name)) btnMobile.classList.add('text-blue-600');
+        
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar && !sidebar.classList.contains('-translate-x-full') && window.innerWidth < 1024) { toggleMobileMenu(); }
+
+        if (name === 'laporan') generateReport('today');
+        if (name === 'transaksi' || name === 'paket') fetchPaket();
+        if (name === 'transaksi') restoreDraft(); // [OPT] Restore draft saat buka form
+        if (name === 'pelanggan') { document.getElementById('searchCustomerDB').value = ''; fetchCustomers(); }
+        if (name === 'history' || name === 'overview') { const sH = document.getElementById('searchHistory'); if(sH) sH.value = ''; const fS = document.getElementById('filterStatus'); if(fS) fS.value = 'Semua'; loadTransactions(); }
+        if (name === 'settings') {
+            document.getElementById('setNotaTitle').value = appSettings.nota_title; document.getElementById('setNotaSubtitle').value = appSettings.nota_subtitle; document.getElementById('setNotaFooter').value = appSettings.nota_footer; document.getElementById('setWaTemplate').value = appSettings.wa_template;
+            document.getElementById('setBankName').value = appSettings.bank_name; document.getElementById('setBankRek').value = appSettings.bank_rek; document.getElementById('setBankAN').value = appSettings.bank_an;
+            document.getElementById('setNotaTatatertib').value = appSettings.nota_tatatertib || '';
+            setTimeout(previewWaTemplate, 50);
+        }
+        if (name === 'promo') fetchPromos();
+    }
+
+    function setActiveFilterBtn(activeId) {
+        const btns = ['btn-filter-today', 'btn-filter-weekly', 'btn-filter-monthly'];
+        for (let i = 0; i < btns.length; i++) {
+            const btn = document.getElementById(btns[i]);
+            if (btn) btn.className = btns[i] === activeId ? "flex-1 md:flex-none px-4 py-2 bg-white shadow-sm border border-slate-100 rounded-xl text-[10px] font-bold uppercase text-blue-600 transition-all" : "flex-1 md:flex-none px-4 py-2 hover:bg-white rounded-xl text-[10px] font-bold uppercase text-slate-500 transition-all";
+        }
+    }
+
+</script>

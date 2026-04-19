@@ -1,0 +1,13 @@
+<div id="deleteModal" class="fixed inset-0 bg-slate-900/60 z-[160] hidden items-center justify-center backdrop-blur-sm transition-all">
+    <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-2xl w-[90%] max-w-sm transform scale-95 transition-transform duration-300" id="deleteModalContent">
+        <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+        </div>
+        <h3 class="text-xl font-black text-center text-slate-900 mb-2 tracking-tight" id="deleteModalTitle">Konfirmasi Hapus</h3>
+        <p class="text-sm text-center text-slate-500 mb-6 leading-relaxed">Tindakan ini tidak dapat dibatalkan. Apakah Anda yakin?</p>
+        <div class="flex gap-3">
+            <button onclick="closeDeleteModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl transition-all active:scale-95 text-sm">Batal</button>
+            <button onclick="executeDelete()" class="flex-[2] bg-red-500 hover:bg-red-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-red-500/30 transition-all active:scale-95 text-sm flex items-center justify-center gap-2">Ya, Hapus</button>
+        </div>
+    </div>
+</div>

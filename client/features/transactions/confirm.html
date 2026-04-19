@@ -1,0 +1,14 @@
+<div id="confirmModal" class="fixed inset-0 bg-slate-900/60 z-[160] hidden items-center justify-center backdrop-blur-sm transition-all p-4 overflow-y-auto">
+    <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-2xl w-full max-w-md transform scale-95 transition-transform duration-300 my-auto" id="confirmModalContent">
+        <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+        </div>
+        <h3 class="text-xl font-black text-center text-slate-900 mb-2 tracking-tight">Konfirmasi Transaksi</h3>
+        <p class="text-sm text-center text-slate-500 mb-6 leading-relaxed">Periksa detail sebelum menyimpan</p>
+        <div class="space-y-0 mb-6 bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden" id="confirmSummary"></div>
+        <div class="flex gap-3">
+            <button onclick="closeConfirmModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-xl transition-all active:scale-95 text-sm">Kembali</button>
+            <button onclick="confirmSubmitTransaksi()" class="flex-[2] bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-95 text-sm">✓ Konfirmasi & Simpan</button>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,30 @@
+<script>
+    function handleLogin() {
+        const u = document.getElementById('username').value.trim(); const p = document.getElementById('password').value.trim();
+        const err = document.getElementById('loginError'); err.classList.add('hidden');
+        if (!u || !p) { err.innerText = "Isi username & password!"; err.classList.remove('hidden'); return; }
+        showLoading(true); const btn = document.getElementById('loginBtn'); btn.disabled = true;
+        google.script.run.withSuccessHandler(function(res) {
+            showLoading(false); btn.disabled = false;
+            if (res && res.success) { 
+                currentUser = { role: res.role, nama: res.nama }; 
+                const expiry = new Date().getTime() + (6 * 60 * 60 * 1000); 
+                localStorage.setItem('l_premium_session_v3', JSON.stringify({ user: currentUser, expiry: expiry })); 
+                showToast("Berhasil Masuk"); setupDashboard(); 
+            } else { err.innerText = res ? res.message : "Gagal masuk."; err.classList.remove('hidden'); }
+        }).withFailureHandler(function(error) { showLoading(false); btn.disabled = false; err.innerText = "Koneksi Gagal: " + error.message; err.classList.remove('hidden'); }).login(u, p);
+    }
+
+    function handleLogout() {
+        localStorage.removeItem('l_premium_session_v3');
+        // [P1] Hapus cache saat logout
+        try { localStorage.removeItem('l_premium_settings_cache'); } catch(e) {}
+        transactionsCacheTime = 0;
+        // [OPT] Hentikan semua interval
+        if (autoRefreshInterval) { clearInterval(autoRefreshInterval); autoRefreshInterval = null; }
+        if (draftSaveInterval) { clearInterval(draftSaveInterval); draftSaveInterval = null; }
+        const dp = document.getElementById('dashboardPage'); const lp = document.getElementById('loginPage');
+        dp.style.opacity = '0';
+        setTimeout(() => { dp.classList.add('hidden'); lp.classList.remove('hidden'); lp.style.opacity = '1'; document.getElementById('username').value = ''; document.getElementById('password').value = ''; currentUser = null; }, 400);
+    }
+</script>

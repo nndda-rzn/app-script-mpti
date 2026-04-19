@@ -1,0 +1,64 @@
+<script>
+    function loadSettings() {
+        // [P1] Cek localStorage cache dulu
+        const cached = localStorage.getItem('l_premium_settings_cache');
+        if (cached) {
+            try {
+                const parsed = JSON.parse(cached);
+                if (Date.now() - parsed._ts < 3600000) { // 1 jam TTL
+                    applySettingsToUI(parsed);
+                    return;
+                }
+            } catch(e) {}
+        }
+        google.script.run.withSuccessHandler(function(data) {
+            if(data) {
+                // Simpan ke localStorage
+                data._ts = Date.now();
+                try { localStorage.setItem('l_premium_settings_cache', JSON.stringify(data)); } catch(e) {}
+                applySettingsToUI(data);
+            }
+        }).getSettings(); 
+    }
+
+    function applySettingsToUI(data) {
+        if(data.nota_title) appSettings.nota_title = data.nota_title;
+        if(data.nota_subtitle) appSettings.nota_subtitle = data.nota_subtitle;
+        if(data.nota_footer) appSettings.nota_footer = data.nota_footer;
+        if(data.wa_template) appSettings.wa_template = data.wa_template;
+        if(data.bank_name) appSettings.bank_name = data.bank_name;
+        if(data.bank_rek) appSettings.bank_rek = data.bank_rek;
+        if(data.bank_an) appSettings.bank_an = data.bank_an;
+        appSettings.nota_tatatertib = data.nota_tatatertib || '';
+        
+        document.getElementById('sidebarTitle').innerText = escapeHTML(appSettings.nota_title);
+        document.getElementById('infoBankName').innerText = escapeHTML(appSettings.bank_name);
+        document.getElementById('infoBankRek').innerText = escapeHTML(appSettings.bank_rek);
+        document.getElementById('infoBankAN').innerText = escapeHTML(appSettings.bank_an);
+        document.getElementById('modalBankName').innerText = escapeHTML(appSettings.bank_name);
+        document.getElementById('modalBankRek').innerText = escapeHTML(appSettings.bank_rek);
+        document.getElementById('modalBankAN').innerText = escapeHTML(appSettings.bank_an);
+        const bn2 = document.getElementById('infoBankName2'); const br2 = document.getElementById('infoBankRek2'); const ba2 = document.getElementById('infoBankAN2');
+        if (bn2) bn2.innerText = escapeHTML(appSettings.bank_name);
+        if (br2) br2.innerText = escapeHTML(appSettings.bank_rek);
+        if (ba2) ba2.innerText = escapeHTML(appSettings.bank_an);
+    }
+
+    function saveAppSettings() {
+        const title = document.getElementById('setNotaTitle').value.trim(); const sub = document.getElementById('setNotaSubtitle').value.trim(); const foot = document.getElementById('setNotaFooter').value; const wa = document.getElementById('setWaTemplate').value; const bName = document.getElementById('setBankName').value.trim(); const bRek = document.getElementById('setBankRek').value.trim(); const bAN = document.getElementById('setBankAN').value.trim();
+        const tatatertib = document.getElementById('setNotaTatatertib').value;
+        if(!title || !wa) { showToast("Nama Toko & Template WA wajib diisi!", "error"); return; }
+        const newData = { nota_title: title, nota_subtitle: sub, nota_footer: foot, wa_template: wa, bank_name: bName, bank_rek: bRek, bank_an: bAN, nota_tatatertib: tatatertib };
+        showLoading(true);
+        google.script.run.withSuccessHandler(function(res) {
+            showLoading(false);
+            if(res.success) {
+                appSettings = newData;
+                // [P1] Hapus cache settings agar terbaca ulang
+                try { localStorage.removeItem('l_premium_settings_cache'); } catch(e) {}
+                loadSettings();
+                showToast("Pengaturan disimpan!");
+            } else { showToast("Gagal menyimpan!", "error"); }
+        }).withFailureHandler(function(err) { showLoading(false); alert("Gagal Simpan Setting:\n" + err.message); }).saveSettingsConfig(newData); 
+    }
+</script>

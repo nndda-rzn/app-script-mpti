@@ -1,0 +1,205 @@
+<script>
+    // 11. LAPORAN & EXPORT
+    function generateReport(type) {
+        showLoading(true); let filtered = []; const now = new Date(); const lblRentang = document.getElementById('lblRentang');
+        if (type === 'today') { setActiveFilterBtn('btn-filter-today'); lblRentang.innerText = "Harian"; } 
+        else if (type === 'weekly') { setActiveFilterBtn('btn-filter-weekly'); lblRentang.innerText = "Mingguan"; } 
+        else if (type === 'monthly') { setActiveFilterBtn('btn-filter-monthly'); lblRentang.innerText = "Bulanan"; } 
+        else { setActiveFilterBtn(''); lblRentang.innerText = "Kustom"; }
+
+        if (type === 'today') { 
+            for(let i=0; i<allTransactions.length; i++) {
+                const d = new Date(allTransactions[i].tanggal);
+                if (!isNaN(d) && d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) { filtered.push(allTransactions[i]); }
+            } 
+        } 
+        else if (type === 'weekly') { 
+            const weekAgo = new Date(); weekAgo.setDate(now.getDate() - 7); 
+            for(let i=0; i<allTransactions.length; i++) {
+                const d = new Date(allTransactions[i].tanggal);
+                if (!isNaN(d) && d >= weekAgo) filtered.push(allTransactions[i]); 
+            }
+        } 
+        else if (type === 'monthly') { 
+            for(let i=0; i<allTransactions.length; i++) { 
+                const d = new Date(allTransactions[i].tanggal); 
+                if (!isNaN(d) && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) filtered.push(allTransactions[i]); 
+            } 
+        } 
+        else if (type === 'custom') { 
+            const startVal = document.getElementById('reportStart').value; 
+            const endVal = document.getElementById('reportEnd').value;
+            
+            let start = null; let end = null;
+            if (startVal) { start = new Date(startVal); start.setHours(0,0,0,0); }
+            if (endVal) { end = new Date(endVal); end.setHours(23,59,59,999); }
+            
+            if (!start && !end) { showToast("Pilih rentang tanggal terlebih dahulu!", "error"); showLoading(false); return; } 
+            
+            for(let i=0; i<allTransactions.length; i++) { 
+                const d = new Date(allTransactions[i].tanggal); 
+                let pass = true;
+                if (!isNaN(d)) {
+                    if (start && d < start) pass = false;
+                    if (end && d > end) pass = false;
+                    if (pass) filtered.push(allTransactions[i]); 
+                }
+            } 
+        }
+
+        currentReportData = filtered; 
+        const labels = []; const revenueData = []; const countData = [];   
+        const packageCount = {}; const grouped = {}; const countGrouped = {}; const customerCount = {}; const paymentMethodCount = {}; let totalRev = 0;
+        
+        for(let i=0; i<filtered.length; i++) { 
+            const t = filtered[i]; const d = new Date(t.tanggal);
+            const dateKey = !isNaN(d) ? d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : 'Tidak Diketahui'; 
+            
+            if(t.status_pembayaran === 'Lunas') { grouped[dateKey] = (grouped[dateKey] || 0) + parseInt(t.total); totalRev += parseInt(t.total); } 
+            else { grouped[dateKey] = (grouped[dateKey] || 0) + 0; }
+            countGrouped[dateKey] = (countGrouped[dateKey] || 0) + 1; 
+            
+            if (t.items && t.items.length > 0) {
+                t.items.forEach(item => {
+                    packageCount[item.paket] = (packageCount[item.paket] || 0) + 1; 
+                });
+            } else {
+                packageCount[t.paket] = (packageCount[t.paket] || 0) + 1; 
+            }
+            
+            if (t.customer) customerCount[t.customer] = (customerCount[t.customer] || 0) + 1;
+            
+            const method = t.metode_pembayaran || 'Lainnya';
+            if (method !== 'Nanti') { paymentMethodCount[method] = (paymentMethodCount[method] || 0) + parseInt(t.total || 0); }
+        }
+        
+        const sortedKeys = Object.keys(grouped).sort(function(a,b){ return new Date(a) - new Date(b) });
+        for(let i=0; i<sortedKeys.length; i++){ 
+            labels.push(sortedKeys[i]); revenueData.push(grouped[sortedKeys[i]]); countData.push(countGrouped[sortedKeys[i]]); 
+        }
+        
+        const sortedCustomers = Object.keys(customerCount).map(key => ({ name: key, count: customerCount[key] })).sort((a, b) => b.count - a.count).slice(0, 5); 
+        const custLabels = sortedCustomers.map(c => escapeHTML(c.name)); const custData = sortedCustomers.map(c => c.count);
+
+        document.getElementById('avg-rev').innerText = 'Rp ' + Math.round(totalRev).toLocaleString('id-ID'); 
+        updateCharts(labels, revenueData, countData, packageCount, custLabels, custData, paymentMethodCount); showLoading(false);
+    }
+
+    function exportToCSV() {
+        if (!currentReportData || currentReportData.length === 0) { showToast("Tidak ada data!", "error"); return; }
+        let csvContent = "ID Transaksi,Tanggal,Customer,Paket,Jumlah/Berat,Satuan,Total (Rp),Status,Metode Bayar,Status Bayar,Kasir,Kode Promo,Diskon\n";
+        for(let i=0; i<currentReportData.length; i++) { 
+            const row = currentReportData[i]; const d = new Date(row.tanggal); const dateStr = !isNaN(d) ? d.toLocaleString('id-ID') : '-'; 
+            if (row.items && row.items.length > 0) {
+                for(let j=0; j<row.items.length; j++){
+                    const itm = row.items[j]; const isFirst = (j === 0);
+                    csvContent += [isFirst ? row.id : "", isFirst ? '"'+dateStr+'"' : "", isFirst ? '"'+row.customer+'"' : "", '"'+itm.paket+'"', itm.berat, itm.satuan||'Kg', isFirst ? row.total : "", isFirst ? row.status : "", isFirst ? row.metode_pembayaran : "", isFirst ? row.status_pembayaran : "", isFirst ? '"'+row.kasir+'"' : "", isFirst ? row.kode_promo || '-' : "", isFirst ? row.diskon || 0 : ""].join(",") + "\n"; 
+                }
+            } else {
+                csvContent += [row.id, '"'+dateStr+'"', '"'+row.customer+'"', '"'+row.paket+'"', row.berat, row.satuan||'Kg', row.total, row.status, row.metode_pembayaran, row.status_pembayaran, '"'+row.kasir+'"', row.kode_promo || '-', row.diskon || 0].join(",") + "\n"; 
+            }
+        }
+        const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })); link.download = "Laporan_" + new Date().getTime() + ".csv";
+        document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast("Berhasil unduh Excel!");
+    }
+
+    function exportToPDF() {
+        if (!currentReportData || currentReportData.length === 0) { showToast("Tidak ada data!", "error"); return; }
+        const { jsPDF } = window.jspdf; const doc = new jsPDF(); doc.setFontSize(16); doc.text("Laporan Transaksi", 14, 20); doc.setFontSize(10); doc.setTextColor(100); doc.text("Total Transaksi: " + currentReportData.length, 14, 28); 
+        let totalRev = 0; for(let i=0; i<currentReportData.length; i++) { if(currentReportData[i].status_pembayaran === 'Lunas') totalRev += parseInt(currentReportData[i].total); }
+        doc.text("Total Pendapatan (Lunas): Rp " + totalRev.toLocaleString('id-ID'), 14, 34); const tableRows = [];
+        for(let i=0; i<currentReportData.length; i++) { 
+            const row = currentReportData[i]; const d = new Date(row.tanggal); const dateStr = !isNaN(d) ? d.toLocaleDateString('id-ID', {day:'numeric', month:'short'}) : '-'; 
+            if (row.items && row.items.length > 0) {
+                for(let j=0; j<row.items.length; j++){
+                    const itm = row.items[j]; const isFirst = (j === 0);
+                    tableRows.push([ isFirst ? dateStr : ' ', isFirst ? row.customer : ' ', itm.paket, itm.berat + " " + (itm.satuan||'Kg'), isFirst ? parseInt(row.total).toLocaleString('id-ID') : '', isFirst ? row.status : '', isFirst ? row.status_pembayaran : '' ]); 
+                }
+            } else {
+                tableRows.push([ dateStr, row.customer, row.paket, row.berat + " " + (row.satuan||'Kg'), parseInt(row.total).toLocaleString('id-ID'), row.status, row.status_pembayaran ]); 
+            }
+        }
+        doc.autoTable({ head: [["Waktu", "Customer", "Paket", "Berat/Jml", "Total (Rp)", "Status", "Bayar"]], body: tableRows, startY: 40, theme: 'grid', styles: { fontSize: 9 }});
+        doc.save("Laporan_" + new Date().getTime() + ".pdf"); showToast("Berhasil unduh PDF!");
+    }
+
+    function updateCharts(labels, revenue, transactionCounts, packages, custLabels, custData, paymentData) {
+        if (trendChart) trendChart.destroy(); if (packageChart) packageChart.destroy();
+
+        const finalLabels = labels.length ? labels : ['-']; const finalRevenue = revenue.length ? revenue : [0]; const finalCount = transactionCounts.length ? transactionCounts : [0]; 
+        const pkgLabels = Object.keys(packages).length ? Object.keys(packages) : ['Kosong']; const pkgData = Object.values(packages).length ? Object.values(packages) : [1];
+
+        const trendOptions = {
+            series: [ { name: 'Omzet', type: 'column', data: finalRevenue }, { name: 'Jml Transaksi', type: 'line', data: finalCount } ],
+            chart: { type: 'line', height: '100%', fontFamily: "'Plus Jakarta Sans', sans-serif", toolbar: { show: false } },
+            stroke: { width: [0, 3], curve: 'smooth' }, colors: ['#3b82f6', '#00E396'], markers: { size: [0, 5], colors: ['#fff'], strokeColors: '#00E396', strokeWidth: 2 }, 
+            dataLabels: { enabled: false }, xaxis: { categories: finalLabels, axisBorder: { show: false }, axisTicks: { show: false } },
+            yaxis: [ { labels: { formatter: function (val) { return "Rp " + val.toLocaleString('id-ID'); } } }, { opposite: true, labels: { formatter: function (val) { return Math.round(val); } } } ],
+            grid: { borderColor: '#f1f5f9', strokeDashArray: 4 }, legend: { position: 'bottom' }
+        };
+        trendChart = new ApexCharts(document.querySelector("#canvasTrend"), trendOptions); trendChart.render();
+
+        const pkgOptions = {
+            series: pkgData, labels: pkgLabels, chart: { type: 'donut', height: '100%', fontFamily: "'Plus Jakarta Sans', sans-serif" },
+            colors: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'], dataLabels: { enabled: false }, plotOptions: { pie: { donut: { size: '70%' } } }, legend: { position: 'bottom' }
+        };
+        packageChart = new ApexCharts(document.querySelector("#canvasPackages"), pkgOptions); packageChart.render();
+        
+        // --- ARUS KAS (Progress Bar) ---
+        const payContainer = document.getElementById('paymentSummary');
+        if (payContainer) {
+            const payKeys = paymentData ? Object.keys(paymentData) : [];
+            if (payKeys.length === 0) { payContainer.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Tidak ada transaksi di periode ini.</p>'; }
+            else {
+                let payTotal = 0; for(let k=0; k<payKeys.length; k++) payTotal += paymentData[payKeys[k]];
+                const methodIcons = { 
+                    'Tunai': '<svg class="w-4 h-4 text-blue-500 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>', 
+                    'QRIS': '<svg class="w-4 h-4 text-emerald-500 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>', 
+                    'Transfer': '<svg class="w-4 h-4 text-violet-500 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>', 
+                    'Nanti': '<svg class="w-4 h-4 text-amber-500 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' 
+                };
+                const methodColors = { 'Tunai': 'bg-blue-500', 'QRIS': 'bg-emerald-500', 'Transfer': 'bg-violet-500', 'Nanti': 'bg-amber-500' };
+                let payHtml = '';
+                for(let k=0; k<payKeys.length; k++) {
+                    const method = payKeys[k]; const val = paymentData[method]; const pct = payTotal > 0 ? ((val/payTotal)*100).toFixed(1) : 0;
+                    const icon = methodIcons[method] || '<svg class="w-4 h-4 text-slate-400 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'; const color = methodColors[method] || 'bg-slate-500';
+                    payHtml += `<div>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <span class="text-sm font-bold text-slate-700 flex items-center gap-2">${icon} ${escapeHTML(method)}</span>
+                            <div class="text-right"><span class="text-xs font-black text-slate-800">Rp ${val.toLocaleString('id-ID')}</span><span class="text-[10px] font-bold text-slate-400 ml-1.5">${pct}%</span></div>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden"><div class="${color} h-full rounded-full transition-all duration-700" style="width: ${pct}%"></div></div>
+                    </div>`;
+                }
+                payContainer.innerHTML = payHtml;
+            }
+        }
+
+        // --- TOP 5 PELANGGAN (Leaderboard) ---
+        const custContainer = document.getElementById('topCustomerSummary');
+        if (custContainer) {
+            if (!custLabels || custLabels.length === 0 || (custLabels.length === 1 && custLabels[0] === 'Belum ada data')) {
+                custContainer.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">Tidak ada pelanggan di periode ini.</p>';
+            } else {
+                const medals = [
+                    '<div class="w-7 h-7 rounded-full bg-amber-400 text-white flex items-center justify-center text-xs font-black shadow-sm">1</div>',
+                    '<div class="w-7 h-7 rounded-full bg-slate-400 text-white flex items-center justify-center text-xs font-black shadow-sm">2</div>',
+                    '<div class="w-7 h-7 rounded-full bg-orange-400 text-white flex items-center justify-center text-xs font-black shadow-sm">3</div>',
+                    '<div class="w-7 h-7 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-black">4</div>',
+                    '<div class="w-7 h-7 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-black">5</div>'
+                ];
+                const rankBg = ['bg-amber-50 border-amber-200', 'bg-slate-50 border-slate-200', 'bg-orange-50 border-orange-200', 'bg-white border-slate-100', 'bg-white border-slate-100'];
+                let custHtml = '';
+                for(let k=0; k<custLabels.length && k<5; k++) {
+                    custHtml += `<div class="flex items-center gap-3 p-3 rounded-xl border ${rankBg[k]} transition-all hover:shadow-sm">
+                        <div class="flex-shrink-0">${medals[k]}</div>
+                        <div class="flex-1 min-w-0"><p class="text-sm font-bold text-slate-800 truncate">${custLabels[k]}</p></div>
+                        <span class="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg text-xs font-black flex-shrink-0">${custData[k]}x</span>
+                    </div>`;
+                }
+                custContainer.innerHTML = custHtml;
+            }
+        }
+    }
+
+</script>
